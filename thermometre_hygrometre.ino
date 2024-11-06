@@ -30,7 +30,7 @@
 #include "Tahu16pt7b.h"                     // Police de caractère : Tahu, en taille 16 points
 #include "BebasNeue11pt7b.h"                // Police de caractère : Bebas Neue, en taille 11 points
 #include <DHT.h>
-
+#include <RTClib.h>
 // =======================================================
 // Paramètrages du capteur température/hygrométrie (DHT22)
 // =======================================================
@@ -66,6 +66,11 @@ Adafruit_SSD1306 ecranOLED(nombreDePixelsEnLargeur, nombreDePixelsEnHauteur, &Wi
 #define largeurImageAafficher   27          // Largeur des images à afficher (symbole thermomètre et symbole goutte d'eau), en pixels
 #define hauteurImageAafficher   40          // Hauteur des images à afficher (symbole thermomètre et symbole goutte d'eau), en pixels
 
+// ====================================
+// Heure
+// ====================================
+RTC_DS3231 rtc;
+
 // Image "goutte-eau-pse_v2", faisant 27x40px
 const unsigned char monImageGoutteEauPse [] PROGMEM = {
   0x00, 0x00, 0x00, 0x00, 0x00, 0x0e, 0x00, 0x00, 0x00, 0x0a, 0x00, 0x00, 0x00, 0x1a, 0x00, 0x00, 
@@ -100,11 +105,16 @@ void setup() {
 
   // Initialisation du DHT22;
   dht.begin();
-
+  rtc.begin();
   // Initialisation de l'écran OLED
   if(!ecranOLED.begin(SSD1306_SWITCHCAPVCC, adresseI2CecranOLED))
     while(1);                               // Arrêt du programme (boucle infinie) si échec d'initialisation de l'écran OLED
   
+  // Initialize RTC
+  /*if (!rtc.begin()) {
+    Serial.println(F("Couldn't find RTC"));
+    while (true);
+  }*/
 
   // Affichage du texte de démarrage
   ecranOLED.clearDisplay();                 // Vidange du buffer de l'écran OLED
@@ -130,6 +140,9 @@ void loop() {
   
   // Lire le niveau de la batterie
   lireBatterie();
+
+  displayDateTime();
+  delay(1500);
   
   // Afficher la température
   affichageTemperature();
@@ -291,4 +304,30 @@ void affichageHygrometrie() {
   ecranOLED.print("%");
   
   ecranOLED.display();                      // Transfert de la mémoire tampon de l'ODED à l'écran, pour affichage
+}
+
+void displayDateTime() {
+  DateTime now = rtc.now();
+  ecranOLED.clearDisplay();
+  ecranOLED.setFont(&BebasNeue11pt7b);
+  ecranOLED.setTextSize(1);
+
+  // Display Date
+  ecranOLED.setCursor(0, 20);
+  ecranOLED.print("Date: ");
+  ecranOLED.print(now.day());
+  ecranOLED.print("/");
+  ecranOLED.print(now.month());
+  ecranOLED.print("/");
+  ecranOLED.print(now.year());
+
+  // Display Time
+  ecranOLED.setCursor(0, 40);
+  ecranOLED.print("Time: ");
+  ecranOLED.print(now.hour());
+  ecranOLED.print(":");
+  ecranOLED.print(now.minute());
+  ecranOLED.print(":");
+  ecranOLED.print(now.second());
+  ecranOLED.display();
 }
