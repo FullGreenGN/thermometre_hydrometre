@@ -40,7 +40,8 @@ DHT dht(brocheDeBranchementDHT, typeDeDHT);
 int valeurHumidite;                         // Variable qui contiendra la valeur du taux d'humidité ambiant (en %)
 int valeurTemperatureEnDegreCelsius;        // Variable qui contiendra la valeur de la température ambiante (exprimée en degrés Celsius)
 boolean mesureCorrectementEffectuee;        // Variable qui indiquera si oui ou non la lecture des mesures effectuées par le DHT22 s'est bien passée ou non
-
+float tauxHumidite;
+float temperatureEnDegreCelsius;
 // =========================================
 // Paramètrages écran OLED 128x64 pixels I2C
 // =========================================
@@ -98,12 +99,30 @@ const unsigned char monImageThermometreMercure [] PROGMEM = {
   0x0e, 0x03, 0x80, 0x00, 0x03, 0x8e, 0x00, 0x00, 0x00, 0xf8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 };
 
+const unsigned char batteryIcon[] PROGMEM = {
+  0xFF, 0x01, 0x01, 0xF9, 0xF9, 0xF9, 0xF9, 0xF9, 0xF9, 0xF9, 0xF9, 0xF9, 
+  0xF9, 0xF9, 0xF9, 0xF9, 0xF9, 0xF9, 0xF9, 0xF9, 0xF9, 0xF9, 0xF9, 0xF9, 
+  0x01, 0x01, 0x01, 0xFF, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 
+  0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 
+  0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0xFF, 0x00, 0x00, 0xFF, 
+  0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 
+  0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 
+  0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 
+  0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 
+  0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 
+  0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 
+  0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF
+};
+
+
+
 // ========================
 // Initialisation programme
 // ========================
 void setup() {
 
   // Initialisation du DHT22;
+  Serial.begin(9600);
   dht.begin();
   rtc.begin();
   // Initialisation de l'écran OLED
@@ -111,7 +130,7 @@ void setup() {
     while(1);                               // Arrêt du programme (boucle infinie) si échec d'initialisation de l'écran OLED
   
   // Initialize RTC
-  /*if (!rtc.begin()) {
+  /*(!rtc.begin()) {
     Serial.println(F("Couldn't find RTC"));
     while (true);
   }*/
@@ -154,7 +173,9 @@ void loop() {
 
   // Afficher le pourcentage de batterie
   affichageBatterie();
-  delay(2000);  // Petite pause avant de relancer une autre lecture
+  delay(1000);  // Petite pause avant de relancer une autre lecture
+
+  sendData();
 }
 
 void lireBatterie() {
@@ -162,8 +183,8 @@ void lireBatterie() {
   tensionBatterie = analogRead(brocheBatterie) * (5.0 / 1023.0);  // Calculer la tension lue
   
   // Afficher la tension pour déboguer
-  Serial.print("Tension lue : ");
-  Serial.println(tensionBatterie, 3); // Afficher avec 3 décimales
+  //erial.print("Tension lue : ");
+  //Serial.println(tensionBatterie, 3); // Afficher avec 3 décimales
   
   // Plage de tension de la batterie
   float tensionMax = 9.0;  // Tension maximale de la batterie (9V)
@@ -183,23 +204,29 @@ void lireBatterie() {
   }
 
   // Afficher le pourcentage pour déboguer
-  Serial.print("Pourcentage batterie : ");
-  Serial.println(pourcentageBatterie);
+  //Serial.print("Pourcentage batterie : ");
+  //Serial.println(pourcentageBatterie);
 }
 
 
 void affichageBatterie() {
-  // Affichage de l'état de la batterie sur l'écran OLED
-  ecranOLED.clearDisplay();
+  // Affichage du symbole "thermomètre" à l'écran
+  ecranOLED.clearDisplay();                 // Effaçage de la mémoire tampon de l'écran OLED
+  ecranOLED.drawBitmap(
+    8,                                      // Alignement de la gauche de l'image à 8 pixels du côté gauche de l'écran
+    20,                                     // Alignement du haut de l'image à 20 pixels du haut de l'écran (pour être dans la partie bleue, et non la jaune)
+    batteryIcon,             // Chargement de l'image "thermomètre"
+    largeurImageAafficher,
+    hauteurImageAafficher,
+    1);
+
+  // Titre
   ecranOLED.setFont(&BebasNeue11pt7b);      // Sélection de la police "Bebas Neue", taille 11pt
   ecranOLED.setTextSize(1);
   ecranOLED.setTextColor(WHITE);
-  ecranOLED.setCursor(15,15);               // Positionner le texte dans le coin supérieur gauche de l'écran
-  ecranOLED.print("BAT: ");
-  
-  ecranOLED.setTextSize(1);
-  ecranOLED.print(pourcentageBatterie);
-  ecranOLED.print("%");
+  ecranOLED.setCursor(15,15);               // Positionnement du texte en x=15, et y=15 pixels
+  ecranOLED.print("BATTERIE");           // Et affichage du mot "TEMPERATURE"
+
   
   ecranOLED.display();
 }
@@ -210,8 +237,8 @@ void affichageBatterie() {
 // ========================================================
 void recupInfosTemperatureEtHygrometrie() {
   // Lecture des données (interrogation du capteur DHT22 par l'Arduino)
-  float tauxHumidite = dht.readHumidity();                                  // Lecture du taux d'humidité (en %)
-  float temperatureEnDegreCelsius = dht.readTemperature();                  // Lecture de la température, exprimée en degrés Celsius
+  tauxHumidite = dht.readHumidity();                                  // Lecture du taux d'humidité (en %)
+  temperatureEnDegreCelsius = dht.readTemperature();                  // Lecture de la température, exprimée en degrés Celsius
 
   // Vérification si données bien reçues
   if (isnan(tauxHumidite) || isnan(temperatureEnDegreCelsius)) {            // Si aucune valeur correcte n'est retournée par le capteur DHT22, on met
@@ -225,48 +252,70 @@ void recupInfosTemperatureEtHygrometrie() {
   }
 }
 
+void sendData() {
+  Serial.print("TEMP: ");
+  Serial.print(temperatureEnDegreCelsius);
+  Serial.print(", HUM: ");
+  Serial.print(tauxHumidite);
+  Serial.print(", BAT: ");
+  Serial.println(pourcentageBatterie);
+  delay(1);
+}
+
 
 // =====================================
 // Section : affichage de la température
 // =====================================
 void affichageTemperature() {
-  // Affichage du symbole "thermomètre" à l'écran
-  ecranOLED.clearDisplay();                 // Effaçage de la mémoire tampon de l'écran OLED
+  // Clear the OLED display and draw the thermometer symbol
+  ecranOLED.clearDisplay();
   ecranOLED.drawBitmap(
-    8,                                      // Alignement de la gauche de l'image à 8 pixels du côté gauche de l'écran
-    20,                                     // Alignement du haut de l'image à 20 pixels du haut de l'écran (pour être dans la partie bleue, et non la jaune)
-    monImageThermometreMercure,             // Chargement de l'image "thermomètre"
+    8,                                      // Align the left of the image 8 pixels from the left of the screen
+    20,                                     // Align the top of the image 20 pixels from the top of the screen
+    monImageThermometreMercure,             // Load the "thermometer" image
     largeurImageAafficher,
     hauteurImageAafficher,
     1);
 
-  // Titre
-  ecranOLED.setFont(&BebasNeue11pt7b);      // Sélection de la police "Bebas Neue", taille 11pt
+  // Title
+  ecranOLED.setFont(&BebasNeue11pt7b);      // Use the "Bebas Neue" font, 11pt size
   ecranOLED.setTextSize(1);
   ecranOLED.setTextColor(WHITE);
-  ecranOLED.setCursor(15,15);               // Positionnement du texte en x=15, et y=15 pixels
-  ecranOLED.print("TEMPERATURE");           // Et affichage du mot "TEMPERATURE"
+  ecranOLED.setCursor(15, 15);              // Position the text at x=15, y=15 pixels
+  ecranOLED.print("TEMPERATURE");           // Display the word "TEMPERATURE"
 
-  // Valeur
-  ecranOLED.setFont();                      // Re-sélection de la police de caractère par défaut, de la librairie Adafruit
+  // Celsius value
+  ecranOLED.setFont();                      // Reset to default font from the Adafruit library
   ecranOLED.setTextSize(3);
   ecranOLED.setTextColor(WHITE);
-  if(valeurTemperatureEnDegreCelsius<0)
-    ecranOLED.setCursor(40,30);             // x, y (48,30) si valeur de t° avec 2 chiffres, et (40,30) pour valeur à 3 chiffres (ou t° négative)
+  if (valeurTemperatureEnDegreCelsius < 0)
+    ecranOLED.setCursor(40, 30);            // Adjust position for 3-digit or negative values
   else
-    ecranOLED.setCursor(48,30);
-  if(mesureCorrectementEffectuee == false)
-    ecranOLED.print("--");                                // Si problème de lecture au niveau du DHT22, affichage du symbole "--"
-  else
-    ecranOLED.print(valeurTemperatureEnDegreCelsius);     // Si aucun pb au niveau du DHT22, affichage de la valeur de température mesurée
-  ecranOLED.setTextSize(2);
-  ecranOLED.print((char)247);               // Appelle le symbole ressemblant au sigle degré "°", car ce dernier n'existe pas vraiment dans cette police de caractère
-  ecranOLED.setTextSize(3);                 // (d'où le changement de tailles de texte (taille 3 -> taille 2 -> taille 3), pour tricher un peu !
-  ecranOLED.print("C");
-  
-  ecranOLED.display();                      // Transfert de la mémoire tampon à l'écran, pour affichage de tout ça !
-}
+    ecranOLED.setCursor(48, 30);
 
+  if (mesureCorrectementEffectuee == false) {
+    ecranOLED.print("--");                  // Display "--" if DHT22 reading fails
+  } else {
+    ecranOLED.print(valeurTemperatureEnDegreCelsius);     // Display the Celsius value
+  }
+
+  ecranOLED.setTextSize(2);
+  ecranOLED.print((char)247);               // Degree symbol
+  ecranOLED.setTextSize(3);
+  ecranOLED.print("C");
+
+  // Fahrenheit value
+  if (mesureCorrectementEffectuee) {
+    int valeurTemperatureEnFahrenheit = (int)(valeurTemperatureEnDegreCelsius * 9.0 / 5.0 + 32);
+    ecranOLED.setTextSize(2);               // Slightly smaller size for Fahrenheit
+    ecranOLED.setCursor(10, 60);            // Adjust cursor for Fahrenheit display
+    ecranOLED.print(valeurTemperatureEnFahrenheit);
+    ecranOLED.print((char)247);             // Degree symbol
+    ecranOLED.print("F");
+  }
+
+  ecranOLED.display();                      // Transfer buffer memory to the OLED display
+}
 
 // ======================================
 // Section : affichage du taux d'humidité
